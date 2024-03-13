@@ -276,6 +276,7 @@ when defined(profileKarax):
       echo i, " value: ", a[i]
 
 proc eq(a, b: VNode; recursive: bool): EqResult =
+  if a.volatile or b.volatile: return different
   if a.kind != b.kind:
     when defined(profileKarax): inc reasons[deKind]
     return different

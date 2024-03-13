@@ -168,6 +168,7 @@ type
     styleVersion*: int
     dom*: Node ## the attached real DOM node. Can be 'nil' if the virtual node
                ## is not part of the virtual DOM anymore.
+    volatile*: bool  ## node is very likely to change by itself
 
   VComponent* = ref object of VNode ## The abstract class for every karax component.
     key*: VKey                      ## key that determines if two components are
