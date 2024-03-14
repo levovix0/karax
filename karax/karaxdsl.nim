@@ -7,7 +7,7 @@ when defined(js):
 
 const
   StmtContext = ["kout", "inc", "echo", "dec", "!"]
-  SpecialAttrs = ["id", "class", "value", "index", "style"]
+  SpecialAttrs = ["id", "class", "value", "index", "style", "volatile"]
 
 proc getName(n: NimNode): string =
   case n.kind

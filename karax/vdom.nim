@@ -166,9 +166,9 @@ type
       validHash*: bool
     style*: VStyle ## the style that should be applied to the virtual node.
     styleVersion*: int
+    volatile*: bool  ## node is very likely to change by itself
     dom*: Node ## the attached real DOM node. Can be 'nil' if the virtual node
                ## is not part of the virtual DOM anymore.
-    volatile*: bool  ## node is very likely to change by itself
 
   VComponent* = ref object of VNode ## The abstract class for every karax component.
     key*: VKey                      ## key that determines if two components are
@@ -296,6 +296,7 @@ proc takeOverFields*(newNode, oldNode: VNode) =
   take events
   take style
   take styleVersion
+  take volatile
   take dom
 
 proc len*(x: VNode): int = x.kids.len
