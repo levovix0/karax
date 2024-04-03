@@ -1,6 +1,7 @@
 
 import macros, vdom, compact, kbase
-from strutils import startsWith, toLowerAscii, cmpIgnoreStyle
+from strutils import startsWith, toLowerAscii, cmpIgnoreStyle, nimIdentNormalize
+from sequtils import any, map, mapIt, filter
 
 when defined(js):
   import karax
@@ -42,7 +43,7 @@ proc toKstring(n: NimNode): NimNode =
       result.add toKstring(child)
 
 proc newDotAsgn(tmp: NimNode, key: string, x: NimNode): NimNode =
-  result = newTree(nnkAsgn, newDotExpr(tmp, newIdentNode key), x)
+  result = newTree(nnkAsgn, newDotExpr(tmp, ident key), x)
 
 proc handleNoRedrawPragma(call: NimNode, tmpContext, name, anon: NimNode): NimNode =
   when defined(js):
@@ -79,7 +80,68 @@ proc tcall2(n, tmpContext: NimNode): NimNode =
       result = newCall(bindSym"add", tmpContext, n)
     else:
       result = n
-  of nnkForStmt, nnkIfExpr, nnkElifExpr, nnkElseExpr,
+  of nnkForStmt:
+    proc hasCapturePragma(n: NimNode): bool =
+      n.kind == nnkPragmaExpr and
+      n[1].kind == nnkPragma and
+      n[1][0].getName.nimIdentNormalize == "capture"
+    
+    proc removeCapturePragma(n: NimNode): NimNode =
+      result = copyNimTree(n)
+      if result.kind == nnkPragmaExpr:
+        if result[1].len == 1:
+          result = result[0]
+        else:
+          result[1].del(1)
+    
+    proc getIdent(n: NimNode): NimNode =
+      if n.kind == nnkPragmaExpr:
+        result = n[0]
+      else:
+        result = n
+
+    # recurse for the last son:
+    result = copyNimTree(n)
+    let L = n.len
+    assert n.len == result.len
+    if L > 0:
+      result[L-1] = tcall2(result[L-1], tmpContext)
+
+    # make and call intermediate proc if any iterable variable should be "captured"
+    if n[0..^3].any(hasCapturePragma):
+      let params = n[0..^3].filter(hasCapturePragma).map(getIdent)
+
+      result = nnkForStmt.newTree(
+        result[0..^3].map(removeCapturePragma) &
+        result[^2] &
+        nnkStmtList.newTree(
+          nnkCall.newTree(
+            nnkLambda.newTree(
+              newEmptyNode(),
+              newEmptyNode(),
+              newEmptyNode(),
+              nnkFormalParams.newTree(
+                newEmptyNode() &
+                params.mapIt(
+                  nnkIdentDefs.newTree(
+                    it,
+                    nnkCall.newTree(
+                      ident("typeof"),
+                      it
+                    ),
+                    newEmptyNode()
+                  )
+                )
+              ),
+              newEmptyNode(),
+              newEmptyNode(),
+              result[^1]
+            ) &
+            params
+          )
+        )
+      )
+  of nnkIfExpr, nnkElifExpr, nnkElseExpr,
       nnkOfBranch, nnkElifBranch, nnkExceptBranch, nnkElse,
       nnkConstDef, nnkWhileStmt, nnkIdentDefs, nnkVarTuple:
     # recurse for the last son:
